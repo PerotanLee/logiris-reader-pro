@@ -125,12 +125,26 @@ body {
   }
 }
 
-.email-content-view table,
-.email-content-view img,
-.email-content-view div {
+.email-content-view * {
   max-width: 100% !important;
-  height: auto !important;
   box-sizing: border-box !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+}
+
+.email-content-view table {
+  table-layout: fixed !important;
+  width: 100% !important;
+}
+
+.email-content-view td,
+.email-content-view th {
+  min-width: 0 !important;
+  word-break: break-all !important;
+}
+
+.email-content-view img {
+  height: auto !important;
 }
 
 /* Actions in Card */
