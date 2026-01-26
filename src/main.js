@@ -7,6 +7,8 @@ import { translateWithGemini } from './translate.js';
 const STATE = {
   clientId: localStorage.getItem('bloomberg_client_id') || '',
   geminiKey: localStorage.getItem('bloomberg_gemini_key') || '',
+  // Default to what we hardcoded, but allow override
+  geminiModel: localStorage.getItem('bloomberg_gemini_model') || 'gemini-1.5-flash-latest',
   nextPageToken: null,
   isLoading: false,
   emails: []
@@ -29,16 +31,19 @@ function showSettingsModal() {
 
   overlay.innerHTML = `
     <div style="background: #161b22; padding: 24px; border-radius: 12px; max-width: 90%; width: 400px; border: 1px solid #30363d;">
-      <h2 style="margin-top:0">Setup (Initial)</h2>
-      <p style="color:#8b949e; font-size: 14px;">Enter your API credentials to start.</p>
+      <h2 style="margin-top:0">Setup</h2>
+      <p style="color:#8b949e; font-size: 14px;">Enter your API credentials.</p>
       
       <label style="display:block; margin-bottom:8px; font-size:12px;">Google OAuth Client ID</label>
       <input type="text" id="inp-client-id" value="${STATE.clientId}" style="width:100%; padding:8px; background:#0d1117; border:1px solid #30363d; color:white; border-radius:6px; margin-bottom:16px;">
       
       <label style="display:block; margin-bottom:8px; font-size:12px;">Gemini API Key</label>
-      <input type="password" id="inp-gemini-key" value="${STATE.geminiKey}" style="width:100%; padding:8px; background:#0d1117; border:1px solid #30363d; color:white; border-radius:6px; margin-bottom:24px;">
+      <input type="password" id="inp-gemini-key" value="${STATE.geminiKey}" style="width:100%; padding:8px; background:#0d1117; border:1px solid #30363d; color:white; border-radius:6px; margin-bottom:16px;">
       
-      <button id="save-settings" style="width:100%; padding:10px; background:#238636; border:none; color:white; border-radius:6px; cursor:pointer;">Start App</button>
+      <label style="display:block; margin-bottom:8px; font-size:12px;">Gemini Model (Optional)</label>
+      <input type="text" id="inp-gemini-model" value="${STATE.geminiModel}" placeholder="gemini-1.5-flash-latest" style="width:100%; padding:8px; background:#0d1117; border:1px solid #30363d; color:white; border-radius:6px; margin-bottom:24px;">
+
+      <button id="save-settings" style="width:100%; padding:10px; background:#238636; border:none; color:white; border-radius:6px; cursor:pointer;">Save & Start</button>
     </div>
   `;
 
@@ -47,12 +52,15 @@ function showSettingsModal() {
   document.getElementById('save-settings').onclick = () => {
     const cid = document.getElementById('inp-client-id').value.trim();
     const gkey = document.getElementById('inp-gemini-key').value.trim();
+    const gmodel = document.getElementById('inp-gemini-model').value.trim() || 'gemini-1.5-flash-latest';
 
     if (cid && gkey) {
       localStorage.setItem('bloomberg_client_id', cid);
       localStorage.setItem('bloomberg_gemini_key', gkey);
+      localStorage.setItem('bloomberg_gemini_model', gmodel);
       STATE.clientId = cid;
       STATE.geminiKey = gkey;
+      STATE.geminiModel = gmodel;
       overlay.remove();
       initApp();
     } else {
@@ -102,7 +110,7 @@ function decodeUrlSafeBase64(data) {
   return customAtob(data.replace(/-/g, '+').replace(/_/g, '/'));
 }
 
-function extractBody(payload) {
+function extractBodyData(payload) {
   let textBody = '';
   let htmlBody = '';
 
@@ -130,22 +138,19 @@ function extractBody(payload) {
     }
   }
 
-  // Prefer text, fallback to stripped HTML
-  let finalBody = textBody;
-  if (!finalBody && htmlBody) {
-    // Strip tags
+  // If no text body, fallback to stripping html for the "text" version (for translation)
+  if (!textBody && htmlBody) {
     const tmp = document.createElement('div');
     tmp.innerHTML = htmlBody;
-    finalBody = tmp.textContent || tmp.innerText || "";
+    textBody = tmp.textContent || tmp.innerText || "";
   }
 
-  // Last resort: Snippet
-  if (!finalBody.trim()) {
-    logToScreen("Body empty, using snippet", 'warn');
-    return payload.snippet || "(No content)";
-  }
+  if (!textBody.trim()) textBody = payload.snippet || "";
 
-  return finalBody.trim();
+  return {
+    text: textBody.trim(),
+    html: htmlBody || textBody || "" // Fallback html to text if no html
+  };
 }
 
 function getHeader(headers, name) {
@@ -164,7 +169,7 @@ async function renderEmail(msgDetails) {
 
     logToScreen(`Rendering: ${subject}`, 'info');
 
-    const bodyText = extractBody(msgDetails.payload);
+    const { text: bodyText, html: bodyHtml } = extractBodyData(msgDetails.payload);
 
     // Card Container
     const card = document.createElement('div');
@@ -181,19 +186,22 @@ async function renderEmail(msgDetails) {
         <div class="card-body translating-state" style="color:#8b949e; font-style:italic;">
           Running Gemini Translation...
         </div>
-        <div class="original-text">${bodyText.substring(0, 1000)}...</div>
+        <div class="original-text"></div>
         <div class="card-actions">
            <button class="btn-text toggle-original">Show Original</button>
            ${isUnread ? `<button class="btn-text mark-read" data-id="${msgDetails.id}">Mark as Read</button>` : ''}
         </div>
       `;
 
+    // Set HTML safely (relatively speaking)
+    card.querySelector('.original-text').innerHTML = bodyHtml;
+
     streamContainer.appendChild(card);
 
     // Trigger Translation
     // Limit text length more aggressively if needed, but 2000 is usually fine.
     const textToTranslate = bodyText.substring(0, 3000);
-    const translation = await translateWithGemini(textToTranslate, STATE.geminiKey);
+    const translation = await translateWithGemini(textToTranslate, STATE.geminiKey, STATE.geminiModel);
 
     // Update UI with translation
     const bodyEl = card.querySelector('.card-body');

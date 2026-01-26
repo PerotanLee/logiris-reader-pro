@@ -5,12 +5,11 @@
  * @param {string} apiKey 
  * @returns {Promise<string>}
  */
-export async function translateWithGemini(text, apiKey) {
+export async function translateWithGemini(text, apiKey, modelName = 'gemini-1.5-flash-latest') {
     if (!apiKey) return "API key missing";
 
     // Try using the latest alias which is often more stable availability-wise
-    const model = 'gemini-1.5-flash-latest';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
     const prompt = `Translate the following email content into natural business Japanese. Output ONLY the translation, no introductory text.\n\n${text}`;
 
