@@ -106,12 +106,13 @@ function getHeader(headers, name) {
   return h ? h.value : '';
 }
 
-async function renderEmail(msgDetails) {
+async function renderEmail(msgDetails, index, total) {
   try {
     const subject = getHeader(msgDetails.payload.headers, 'Subject');
     const from = getHeader(msgDetails.payload.headers, 'From');
     const dateStr = getHeader(msgDetails.payload.headers, 'Date') || msgDetails.internalDate;
     const date = new Date(parseInt(msgDetails.internalDate) || dateStr);
+    // Double check unread status just in case
     const isUnread = msgDetails.labelIds.includes('UNREAD');
 
     const { html: bodyHtml } = extractBodyData(msgDetails.payload);
@@ -120,10 +121,13 @@ async function renderEmail(msgDetails) {
     card.className = `email-card ${isUnread ? 'unread' : ''}`;
     card.id = `card-${msgDetails.id}`;
 
+    // Index display: "1/20"
+    const counterStr = (index !== undefined && total !== undefined) ? `${index + 1}/${total}` : '';
+
     card.innerHTML = `
         <div class="card-meta">
           <span>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span>
-          <span>${from.split('<')[0]}</span>
+          <span>${counterStr}</span>
         </div>
         <div class="card-title">${subject}</div>
         <div class="email-content-view"></div>
@@ -172,22 +176,27 @@ async function loadEmails() {
     const listResp = await listBloombergEmails(STATE.nextPageToken);
 
     if (listResp && listResp.messages) {
-      // Pagination logic roughly ignored for sorting requirement within batch.
-      // STATE.nextPageToken = listResp.nextPageToken; 
-
       const messages = listResp.messages;
       const detailsPromises = messages.map(msg => getEmailDetails(msg.id));
       const details = await Promise.all(detailsPromises);
 
-      const validDetails = details.filter(d => d);
+      // Strict filtering: Ensure msg is not null AND actually has UNREAD label
+      // This fixes the "read emails showing up" issue if the index was stale
+      const validDetails = details.filter(d => d && d.labelIds && d.labelIds.includes('UNREAD'));
 
       // Sort Oldest -> Newest (Ascending internalDate)
       validDetails.sort((a, b) => {
         return parseInt(a.internalDate) - parseInt(b.internalDate);
       });
 
-      for (const d of validDetails) {
-        await renderEmail(d);
+      const total = validDetails.length;
+
+      for (let i = 0; i < total; i++) {
+        await renderEmail(validDetails[i], i, total);
+      }
+
+      if (total === 0) {
+        if (loadingEl) loadingEl.textContent = "No unread Bloomberg emails found in the last 48h.";
       }
 
     } else {
@@ -259,16 +268,12 @@ if (!STATE.clientId) {
   initApp();
 }
 
-// Page Down Logic
+// Page Down Logic (Instant Scroll)
 nextBtn.onclick = () => {
   window.scrollBy({
     top: window.innerHeight * 0.8,
-    behavior: 'smooth'
+    behavior: 'auto' // Instant jump per request
   });
-
-  // Logic for load more is removed/complicated by sorting requirement (scrolling down to load *newer* emails vs infinite scroll usually loads *older*).
-  // With "Oldest First", the bottom of the list is the "Newest".
-  // So typically we load everything involved in the sort range at once.
 };
 
 window.addEventListener('keydown', (e) => {
