@@ -46,26 +46,24 @@ body {
 
 /* Container */
 .stream-container {
-  padding: 10px;
-  max-width: 900px;
-  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  margin: 0;
   min-height: 100vh;
   padding-bottom: 80px;
-  /* Space for FAB only */
 }
 
 /* Email Card */
 .email-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 16px;
+  border-radius: 0;
+  padding: 8px;
+  margin-bottom: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
   overflow: hidden;
   overflow-x: auto;
-  /* Allow scrolling */
 }
 
 .email-card.unread {
@@ -85,10 +83,10 @@ body {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  margin: 0 0 12px 0;
-  line-height: 1.4;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
 }
 
 .card-body {
@@ -100,9 +98,15 @@ body {
 }
 
 .email-content-view {
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 14px;
-  /* Standardize */
+  zoom: 1.5;
+  /* Phase 2: Content Zoom */
+  -moz-transform: scale(1.5);
+  /* Firefox compatibility */
+  -moz-transform-origin: 0 0;
+  transform: scale(1.5);
+  transform-origin: 0 0;
 }
 
 /* Adjust nested tables in email content */
