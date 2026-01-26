@@ -8,7 +8,9 @@
 export async function translateWithGemini(text, apiKey) {
     if (!apiKey) return "API key missing";
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Try using the latest alias which is often more stable availability-wise
+    const model = 'gemini-1.5-flash-latest';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const prompt = `Translate the following email content into natural business Japanese. Output ONLY the translation, no introductory text.\n\n${text}`;
 
