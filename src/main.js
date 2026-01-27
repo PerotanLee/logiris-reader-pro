@@ -1,6 +1,6 @@
 
 import './style.css';
-import { gapiLoaded, gisLoaded, handleAuthClick, listBloombergEmails, getEmailDetails, markAsRead } from './gmail.js';
+import { gapiLoaded, gisLoaded, handleAuthClick, listBloombergEmails, getEmailDetails, markAsRead, batchMarkAsRead } from './gmail.js';
 
 // Configuration State
 const STATE = {
@@ -197,18 +197,22 @@ async function loadEmails() {
       const details = await Promise.all(detailsPromises);
 
       // Strict filtering: Ensure msg is not null AND actually has UNREAD label
-      // This fixes the "read emails showing up" issue if the index was stale
       const validDetails = details.filter(d => d && d.labelIds && d.labelIds.includes('UNREAD'));
 
       // Sort Oldest -> Newest (Ascending internalDate)
-      validDetails.sort((a, b) => {
-        return parseInt(a.internalDate) - parseInt(b.internalDate);
-      });
+      validDetails.sort((a, b) => parseInt(a.internalDate) - parseInt(b.internalDate));
 
-      const total = validDetails.length;
+      // Limit to 40 items for performance (Phase 6 requirement)
+      const displayEmails = validDetails.slice(0, 40);
+      const total = displayEmails.length;
 
       for (let i = 0; i < total; i++) {
-        await renderEmail(validDetails[i], i, total);
+        await renderEmail(displayEmails[i], i, total);
+      }
+
+      // Add Batch Mark as Read button at the bottom if there are emails
+      if (total > 0) {
+        addBatchReadButton(displayEmails.map(e => e.id));
       }
 
       if (total === 0) {
@@ -227,6 +231,36 @@ async function loadEmails() {
     STATE.isLoading = false;
     if (loadingEl && document.querySelectorAll('.email-card').length > 0) loadingEl.remove();
   }
+}
+
+// --- Batch Actions ---
+function addBatchReadButton(messageIds) {
+  const container = document.getElementById('stream-container');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'batch-actions-wrapper';
+  wrapper.style.cssText = 'padding: 40px 20px; text-align: center;';
+
+  const btn = document.createElement('button');
+  btn.className = 'btn-primary';
+  btn.textContent = `Mark all ${messageIds.length} emails as read`;
+  btn.onclick = async () => {
+    if (confirm(`Mark all ${messageIds.length} visible emails as read?`)) {
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+      const success = await batchMarkAsRead(messageIds);
+      if (success) {
+        // Refresh the list to show remaining unread if any
+        location.reload();
+      } else {
+        alert('Batch update failed.');
+        btn.disabled = false;
+        btn.textContent = `Mark all ${messageIds.length} emails as read`;
+      }
+    }
+  };
+
+  wrapper.appendChild(btn);
+  container.appendChild(wrapper);
 }
 
 // --- Navigation & Zoom Controls ---

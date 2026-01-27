@@ -231,23 +231,57 @@ body {
 
 .fab-btn {
   pointer-events: auto;
-  width: var(--fab-size);
-  height: var(--fab-size);
+  width: 44px;
+  /* Slightly smaller for mobile */
+  height: 44px;
   border-radius: 50%;
-  background: var(--accent-color);
+  background: rgba(35, 134, 54, 0.3);
+  /* Transparent Green */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: #fff;
-  border: none;
-  font-size: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s;
+  transition: all 0.2s;
+  opacity: 0.8;
+}
+
+.fab-btn:hover {
+  background: rgba(35, 134, 54, 0.6);
+  opacity: 1;
+  transform: translateY(-2px);
 }
 
 .fab-btn:active {
   transform: scale(0.9);
+}
+
+.btn-primary {
+  background: #238636;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 4px 12px rgba(35, 134, 54, 0.2);
+}
+
+.btn-primary:hover {
+  background: #2ea043;
+}
+
+.btn-primary:disabled {
+  background: #216e39;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Loading */

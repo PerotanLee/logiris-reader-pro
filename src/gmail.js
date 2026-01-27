@@ -61,8 +61,8 @@ export async function listBloombergEmails(pageToken = null) {
     try {
         const response = await gapi.client.gmail.users.messages.list({
             'userId': 'me',
-            'q': 'from:bloomberg.com',
-            'maxResults': 10,
+            'q': 'from:bloomberg.com is:unread newer_than:2d',
+            'maxResults': 100,
             'pageToken': pageToken
         });
         return response.result;
@@ -98,6 +98,22 @@ export async function markAsRead(messageId) {
         return true;
     } catch (err) {
         console.error('Mark read error', err);
+        return false;
+    }
+}
+
+export async function batchMarkAsRead(messageIds) {
+    try {
+        await gapi.client.gmail.users.messages.batchModify({
+            'userId': 'me',
+            'resource': {
+                'ids': messageIds,
+                'removeLabelIds': ['UNREAD']
+            }
+        });
+        return true;
+    } catch (err) {
+        console.error('Batch mark read error', err);
         return false;
     }
 }
