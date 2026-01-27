@@ -378,7 +378,6 @@ async function initApp() {
   checkDeviceType(); // Detect device on init
   setupNavigation();
   setupZoom();
-  setupProSettings();
 
   window.handleGoogleAuth = () => {
     handleAuthClick(async () => {
@@ -428,6 +427,8 @@ async function initApp() {
 }
 
 // Main logic
+setupProSettings();
+
 if (!STATE.clientId) {
   showSettingsModal();
 } else {

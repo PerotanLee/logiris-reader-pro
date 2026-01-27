@@ -1,7 +1,7 @@
 
 /** @type {import('vite').UserConfig} */
 export default {
-  base: './',
+  base: '/logiris-reader-pro/',
   build: {
     outDir: 'dist',
   }
