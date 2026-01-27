@@ -110,11 +110,10 @@ function getHeader(headers, name) {
 
 async function renderEmail(msgDetails, index, total) {
   try {
-    const subject = getHeader(msgDetails.payload.headers, 'Subject');
+    const subject = getHeader(msgDetails.payload.headers, 'Subject') || "No Subject";
     const from = getHeader(msgDetails.payload.headers, 'From');
     const dateStr = getHeader(msgDetails.payload.headers, 'Date') || msgDetails.internalDate;
     const date = new Date(parseInt(msgDetails.internalDate) || dateStr);
-    // Double check unread status just in case
     const isUnread = msgDetails.labelIds.includes('UNREAD');
 
     const { html: bodyHtml } = extractBodyData(msgDetails.payload);
@@ -128,14 +127,12 @@ async function renderEmail(msgDetails, index, total) {
     if (nav) {
       const option = document.createElement('option');
       option.value = card.id;
-      // Clean up subject for short display
       const shortSubject = subject.replace(/Australia Briefing:|Briefing:|Bloomberg|Japan/gi, '').trim();
       const shortFrom = from.split('<')[0].replace(/"/g, '').trim();
       option.textContent = `${shortFrom}: ${shortSubject}`;
       nav.appendChild(option);
     }
 
-    // Index display: "1/20"
     const counterStr = (index !== undefined && total !== undefined) ? `${index + 1}/${total}` : '';
 
     card.innerHTML = `
@@ -159,7 +156,11 @@ async function renderEmail(msgDetails, index, total) {
       if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
         link.addEventListener('click', (e) => {
           e.preventDefault();
-          openReaderView(url, subject);
+          console.log("Interception triggered for:", url);
+          openReaderView(url, subject).catch(err => {
+            console.error("Reader view failed to open:", err);
+            alert("エラー: 記事を開けませんでした。");
+          });
         });
       }
     });
@@ -169,7 +170,7 @@ async function renderEmail(msgDetails, index, total) {
     contentDiv.style.color = '#000000';
     contentDiv.style.padding = '8px';
     contentDiv.style.borderRadius = '4px';
-    contentDiv.style.overflowX = 'auto'; // ensure tables scroll
+    contentDiv.style.overflowX = 'auto';
 
     streamContainer.appendChild(card);
 
@@ -196,42 +197,29 @@ async function loadEmails() {
   const loadingEl = document.querySelector('.loading-state');
   if (loadingEl) loadingEl.textContent = 'Loading emails...';
 
-  // Clear navigation dropdown except for first item
   const nav = document.getElementById('email-nav');
   if (nav) nav.innerHTML = '<option value="">Jump to email...</option>';
 
   try {
-    // 1. Fetch List (Query: from:bloomberg.com is:unread newer_than:2d)
     const listResp = await listBloombergEmails(STATE.nextPageToken);
 
     if (listResp && listResp.messages) {
       const messages = listResp.messages;
       const detailsPromises = messages.map(msg => getEmailDetails(msg.id));
       const details = await Promise.all(detailsPromises);
-
-      // Strict filtering: Ensure msg is not null AND actually has UNREAD label
       const validDetails = details.filter(d => d && d.labelIds && d.labelIds.includes('UNREAD'));
-
-      // Sort Oldest -> Newest (Ascending internalDate)
       validDetails.sort((a, b) => parseInt(a.internalDate) - parseInt(b.internalDate));
-
-      // Limit to 40 items for performance (Phase 6 requirement)
       const displayEmails = validDetails.slice(0, 40);
       const total = displayEmails.length;
-
       for (let i = 0; i < total; i++) {
         await renderEmail(displayEmails[i], i, total);
       }
-
-      // Add Batch Mark as Read button at the bottom if there are emails
       if (total > 0) {
         addBatchReadButton(displayEmails.map(e => e.id));
       }
-
       if (total === 0) {
         if (loadingEl) loadingEl.textContent = "No unread Bloomberg emails found in the last 48h.";
       }
-
     } else {
       if (document.querySelectorAll('.email-card').length === 0) {
         if (loadingEl) loadingEl.textContent = "No Bloomberg emails found.";
@@ -262,7 +250,6 @@ function addBatchReadButton(messageIds) {
       btn.textContent = 'Processing...';
       const success = await batchMarkAsRead(messageIds);
       if (success) {
-        // Refresh the list to show remaining unread if any
         location.reload();
       } else {
         alert('Batch update failed.');
@@ -285,11 +272,8 @@ function setupNavigation() {
     if (cardId) {
       const target = document.getElementById(cardId);
       if (target) {
-        // Immediate jump often more reliable on mobile components
         target.scrollIntoView({ behavior: 'auto', block: 'start' });
-        console.log(`Jumped to: ${cardId}`);
       }
-      // Reset select so we can jump back to the same email if needed
       setTimeout(() => { nav.value = ""; }, 100);
     }
   });
@@ -298,27 +282,30 @@ function setupNavigation() {
 function setupZoom() {
   const zoomCtrl = document.getElementById('zoom-ctrl');
   if (!zoomCtrl) return;
-
-  // Initialize zoom value from current CSS state
   const currentZoom = getComputedStyle(document.body).getPropertyValue('--current-zoom').trim();
   if (currentZoom) {
     zoomCtrl.value = parseFloat(currentZoom).toFixed(1);
   }
-
   zoomCtrl.addEventListener('change', (e) => {
     const val = e.target.value;
     document.body.style.setProperty('--current-zoom', val);
-    console.log(`Manual zoom set to: ${val}`);
   });
 }
 
 // --- Reader View Logic ---
 async function openReaderView(url, title = 'Article') {
+  console.log("openReaderView called for:", url);
   const readerView = document.getElementById('reader-view');
   const readerTitle = document.getElementById('reader-title');
   const readerBody = document.getElementById('reader-article-body');
   const externalBtn = document.getElementById('reader-external-btn');
 
+  if (!readerView || !readerBody) {
+    console.error("Reader view elements missing!");
+    return;
+  }
+
+  // FORCE VISIBILITY FIRST
   readerTitle.textContent = title;
   readerView.style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -334,6 +321,7 @@ async function openReaderView(url, title = 'Article') {
   externalBtn.onclick = () => window.open(url, '_blank');
 
   if (!STATE.gasUrl) {
+    console.warn("No gasUrl configured");
     readerBody.innerHTML = `
       <div style="padding: 40px; text-align: center;">
         <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
@@ -353,15 +341,14 @@ async function openReaderView(url, title = 'Article') {
 
   try {
     const cookies = CookieBridge.getSavedCookies();
-
-    // Switch to simple request (application/x-www-form-urlencoded) to avoid CORS preflight (OPTIONS)
     const formData = new URLSearchParams();
     formData.append('url', url);
     formData.append('cookies', cookies);
 
+    console.log("Sending request to GAS:", STATE.gasUrl);
     const response = await fetch(STATE.gasUrl, {
       method: 'POST',
-      body: formData // This sends as application/x-www-form-urlencoded by default
+      body: formData
     });
 
     if (!response.ok) {
@@ -369,6 +356,7 @@ async function openReaderView(url, title = 'Article') {
     }
 
     const data = await response.json();
+    console.log("Received data from GAS:", data.success ? "Success" : "Error");
 
     if (data.success) {
       readerBody.innerHTML = `
@@ -383,7 +371,7 @@ async function openReaderView(url, title = 'Article') {
       throw new Error(data.error || '本文の取得に失敗しました。');
     }
   } catch (err) {
-    console.error('Extraction error:', err);
+    console.error('Extraction error details:', err);
     readerBody.innerHTML = `
       <div style="padding: 40px; text-align: center;">
         <p style="color: #ff7b72; font-weight: bold;">エラーが発生しました: ${err.name === 'TypeError' ? '取得に失敗しました (CORS またはネットワークエラー)' : err.message}</p>
@@ -401,8 +389,8 @@ async function openReaderView(url, title = 'Article') {
 
 function closeReaderView() {
   const readerView = document.getElementById('reader-view');
-  readerView.style.display = 'none';
-  document.body.style.overflow = ''; // Restore scrolling
+  if (readerView) readerView.style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 function setupReaderNavigation() {
@@ -420,27 +408,21 @@ function setupProSettings() {
   const saveBtn = document.getElementById('save-cookies-btn');
   const copyBtn = document.getElementById('copy-bookmarklet-btn');
   const cookieInput = document.getElementById('cookie-input');
-  const gasUrlInput = document.getElementById('common-gas-url'); // New input
+  const gasUrlInput = document.getElementById('common-gas-url');
   const bookmarkletCode = document.getElementById('bookmarklet-code');
 
   if (!proBtn || !proModal) return;
 
-  // Set bookmarklet code
   bookmarkletCode.textContent = CookieBridge.getBookmarkletCode();
 
   proBtn.onclick = () => {
     cookieInput.value = CookieBridge.getSavedCookies();
-    gasUrlInput.value = STATE.gasUrl; // Load current GAS URL
+    gasUrlInput.value = STATE.gasUrl;
     proModal.style.display = 'flex';
   };
 
-  closeBtn.onclick = () => {
-    proModal.style.display = 'none';
-  };
-
-  proModal.onclick = (e) => {
-    if (e.target === proModal) proModal.style.display = 'none';
-  };
+  closeBtn.onclick = () => { proModal.style.display = 'none'; };
+  proModal.onclick = (e) => { if (e.target === proModal) proModal.style.display = 'none'; };
 
   copyBtn.onclick = () => {
     navigator.clipboard.writeText(CookieBridge.getBookmarkletCode());
@@ -467,32 +449,22 @@ function loadScript(src) {
     script.src = src;
     script.async = true;
     script.defer = true;
-    script.onload = () => {
-      console.log(`Script loaded: ${src}`);
-      resolve();
-    };
-    script.onerror = () => {
-      console.error(`Script load error: ${src}`);
-      reject(new Error(`Failed to load script: ${src}`));
-    };
+    script.onload = () => { resolve(); };
+    script.onerror = () => { reject(new Error(`Failed to load script: ${src}`)); };
     document.head.appendChild(script);
   });
 }
 
-// --- Device Detection ---
 function checkDeviceType() {
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  // Simple check for mobile/tablet via user agent as fallback/complement
   const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
   if (isTouchDevice || isMobileUA) {
     document.body.classList.add('is-mobile-view');
-    console.log("Mobile/Tablet device detected. Applying adaptive zoom styles.");
   }
 }
 
 async function initApp() {
-  checkDeviceType(); // Detect device on init
+  checkDeviceType();
   setupNavigation();
   setupZoom();
   setupReaderNavigation();
@@ -507,21 +479,12 @@ async function initApp() {
   try {
     const authStatus = document.getElementById('auth-status');
     authStatus.textContent = "Initializing Google Services...";
-
-    // 1. Load Scripts sequentially
     await loadScript('https://apis.google.com/js/api.js');
     await loadScript('https://accounts.google.com/gsi/client');
-
-    // 2. Initialize GAPI
     await new Promise((resolve) => gapi.load('client', resolve));
     await gapiLoaded();
-
-    // 3. Initialize GIS
     gisLoaded(STATE.clientId);
-
     authStatus.textContent = "";
-
-    // Auto-login if token exists
     const savedToken = localStorage.getItem('gmail_access_token');
     if (savedToken) {
       handleGoogleAuth();
@@ -532,107 +495,76 @@ async function initApp() {
       btn.onclick = window.handleGoogleAuth;
       authStatus.appendChild(btn);
     }
-
   } catch (e) {
     console.error("Initialization Error:", e);
     const authStatus = document.getElementById('auth-status');
-    authStatus.innerHTML = `
-      <div style="color: #ff7b72; font-size: 12px; text-align: right;">
-        Loading Error. <button onclick="location.reload()" style="background:none; border:1px solid #ff7b72; color:#ff7b72; border-radius:4px; cursor:pointer;">Retry</button>
-      </div>
-    `;
+    authStatus.innerHTML = `<div style="color: #ff7b72; font-size: 12px; text-align: right;">Loading Error. <button onclick="location.reload()" style="background:none; border:1px solid #ff7b72; color:#ff7b72; border-radius:4px; cursor:pointer;">Retry</button></div>`;
   }
 }
 
 // Main logic
 setupProSettings();
-
 if (!STATE.clientId) {
   showSettingsModal();
 } else {
   initApp();
 }
 
-// Page Down Logic (Instant Scroll)
-// Page Down Logic (Instant Scroll) with Dragging support
+// Page Down Logic
 let isDragging = false;
 let startY = 0;
 let initialTop = 0;
 const fabContainer = document.querySelector('.fab-container');
 
-nextBtn.oncontextmenu = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  return false;
-};
+if (nextBtn) {
+  nextBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
 
-nextBtn.onpointerdown = (e) => {
-  // Only drag on mobile
-  if (!document.body.classList.contains('is-mobile-view')) {
+  nextBtn.onpointerdown = (e) => {
+    if (!document.body.classList.contains('is-mobile-view')) { isDragging = false; return; }
     isDragging = false;
-    return;
-  }
-  isDragging = false;
-  startY = e.clientY;
-  const rect = fabContainer.getBoundingClientRect();
-  initialTop = rect.top;
-  nextBtn.setPointerCapture(e.pointerId);
-};
+    startY = e.clientY;
+    const rect = fabContainer.getBoundingClientRect();
+    initialTop = rect.top;
+    nextBtn.setPointerCapture(e.pointerId);
+  };
 
-nextBtn.onpointermove = (e) => {
-  const deltaY = Math.abs(e.clientY - startY);
-  if (deltaY > 5) {
-    isDragging = true;
-    const newTop = initialTop + (e.clientY - startY);
-    // Keep within viewport
-    const boundedTop = Math.max(60, Math.min(window.innerHeight - 60, newTop));
-    fabContainer.style.top = `${boundedTop}px`;
-    fabContainer.style.bottom = 'auto'; // Break the default bottom if any
-    fabContainer.style.transform = 'none'; // Clear the centering transform during manual movement
-  }
-};
-
-nextBtn.onpointerup = (e) => {
-  nextBtn.releasePointerCapture(e.pointerId);
-  if (!isDragging) {
-    // Check if Reader View is open
-    const readerView = document.getElementById('reader-view');
-    const isReaderOpen = readerView && readerView.style.display !== 'none';
-
-    if (isReaderOpen) {
-      const readerArea = document.getElementById('reader-content-area');
-      readerArea.scrollBy({
-        top: readerArea.clientHeight * 0.9,
-        behavior: 'auto'
-      });
-    } else {
-      window.scrollBy({
-        top: window.innerHeight * 0.9,
-        behavior: 'auto'
-      });
+  nextBtn.onpointermove = (e) => {
+    const deltaY = Math.abs(e.clientY - startY);
+    if (deltaY > 5) {
+      isDragging = true;
+      const newTop = initialTop + (e.clientY - startY);
+      const boundedTop = Math.max(60, Math.min(window.innerHeight - 60, newTop));
+      fabContainer.style.top = `${boundedTop}px`;
+      fabContainer.style.bottom = 'auto';
+      fabContainer.style.transform = 'none';
     }
-  }
-};
+  };
+
+  nextBtn.onpointerup = (e) => {
+    nextBtn.releasePointerCapture(e.pointerId);
+    if (!isDragging) {
+      const readerView = document.getElementById('reader-view');
+      const isReaderOpen = readerView && readerView.style.display !== 'none';
+      if (isReaderOpen) {
+        const readerArea = document.getElementById('reader-content-area');
+        readerArea.scrollBy({ top: readerArea.clientHeight * 0.9, behavior: 'auto' });
+      } else {
+        window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
+      }
+    }
+  };
+}
 
 window.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'PageDown') {
     e.preventDefault();
-
-    // Check if Reader View is open
     const readerView = document.getElementById('reader-view');
     const isReaderOpen = readerView && readerView.style.display !== 'none';
-
     if (isReaderOpen) {
       const readerArea = document.getElementById('reader-content-area');
-      readerArea.scrollBy({
-        top: readerArea.clientHeight * 0.9,
-        behavior: 'auto'
-      });
+      readerArea.scrollBy({ top: readerArea.clientHeight * 0.9, behavior: 'auto' });
     } else {
-      window.scrollBy({
-        top: window.innerHeight * 0.9,
-        behavior: 'auto'
-      });
+      window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
     }
   }
 });
