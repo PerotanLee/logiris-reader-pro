@@ -7,11 +7,11 @@ export const CookieBridge = {
     LS_KEY: 'logiris_bloomberg_cookies',
 
     /**
-     * Returns the bookmarklet code that the user should run on bloomberg.com
-     * to copy their session cookies.
+     * Returns a robust diagnostic bookmarklet code.
+     * It looks for session-related cookies and provides a fallback if none are found.
      */
     getBookmarkletCode() {
-        return 'javascript:(function(){const c=document.cookie.split("; ").filter(x=>x.startsWith("exp_last_session")||x.startsWith("p_session_id"));if(c.length===0){alert("Bloombergのセッションクッキーが見つかりません。ログインしているか確認してください。");}else{const s=c.join("; ");prompt("以下のクッキーをコピーして、Logirisの設定欄に貼り付けてください:",s);}})();';
+        return 'javascript:(function(){const d=window.location.hostname;if(!d.includes("bloomberg.com")&&!d.includes("bloomberg.co.jp")){alert("Bloombergのサイト上で実行してください (現在のドメイン: "+d+")");return;}const c=document.cookie.split("; ");const f=c.filter(x=>{const k=x.split("=")[0].toLowerCase();return k.includes("session")||k.includes("auth")||k.includes("token")||k.includes("login")});if(c.length===0){alert("ブラウザからクッキーが一つも見つかりませんでした。プライベートモードや制限がかかっていないか確認してください。");}else if(f.length===0){const all=c.map(x=>x.split("=")[0]).join(", ");prompt("セッション用クッキーを特定できませんでした。以下の中からそれらしいものを選んでコピーするか、すべてコピーして貼り付けてください:\\n\\n"+all, c.join("; "));}else{prompt("Bloombergのログイン情報を抽出しました。これをコピーして、Logirisの設定欄に貼り付けてください:", f.join("; "));}})();';
     },
 
     /**
