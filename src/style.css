@@ -221,7 +221,8 @@ body {
   bottom: 24px;
   /* Default for Desktop */
   right: 20px;
-  z-index: 1000;
+  z-index: 2000;
+  /* Higher than Reader View (1500) */
   display: flex;
   justify-content: flex-end;
   pointer-events: none;
@@ -486,8 +487,8 @@ textarea {
 
 /* Ensure Reader View content matches app aesthetic */
 .reader-view .email-content-view {
-  background: #fff !important;
-  color: #000 !important;
+  background: var(--bg-color) !important;
+  color: var(--text-primary) !important;
   border-radius: 8px;
   min-height: 100%;
 }
