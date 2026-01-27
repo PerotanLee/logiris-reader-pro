@@ -391,16 +391,50 @@ if (!STATE.clientId) {
 }
 
 // Page Down Logic (Instant Scroll)
-nextBtn.onclick = () => {
-  window.scrollBy({
-    top: window.innerHeight * 0.9,
-    behavior: 'auto' // Instant jump per request
-  });
+// Page Down Logic (Instant Scroll) with Dragging support
+let isDragging = false;
+let startY = 0;
+let initialTop = 0;
+const fabContainer = document.querySelector('.fab-container');
+
+nextBtn.onpointerdown = (e) => {
+  isDragging = false;
+  startY = e.clientY;
+  const rect = fabContainer.getBoundingClientRect();
+  initialTop = rect.top;
+  nextBtn.setPointerCapture(e.pointerId);
+};
+
+nextBtn.onpointermove = (e) => {
+  const deltaY = Math.abs(e.clientY - startY);
+  if (deltaY > 5) {
+    isDragging = true;
+    const newTop = initialTop + (e.clientY - startY);
+    // Keep within viewport
+    const boundedTop = Math.max(60, Math.min(window.innerHeight - 60, newTop));
+    fabContainer.style.top = `${boundedTop}px`;
+    fabContainer.style.bottom = 'auto'; // Break the default bottom if any
+  }
+};
+
+nextBtn.onpointerup = (e) => {
+  nextBtn.releasePointerCapture(e.pointerId);
+  if (!isDragging) {
+    // It's a click
+    window.scrollBy({
+      top: window.innerHeight * 0.9,
+      behavior: 'auto'
+    });
+  }
 };
 
 window.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'PageDown') {
     e.preventDefault();
-    nextBtn.click();
+    // Simulate click scroll
+    window.scrollBy({
+      top: window.innerHeight * 0.9,
+      behavior: 'auto'
+    });
   }
 });

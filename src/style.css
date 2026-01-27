@@ -218,22 +218,20 @@ body {
 /* FAB */
 .fab-container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  /* left: 0; Removing center alignment to keep it right aligned which works better typically, unless user insists on center. */
+  top: 55%;
+  /* Default to mid-height for easier access */
+  right: 20px;
+  z-index: 1000;
   display: flex;
   justify-content: flex-end;
   pointer-events: none;
 }
 
-/* Override container for better positioning if needed, keep simple */
-.fab-container {
-  right: 20px;
-  bottom: 20px;
-}
-
 .fab-btn {
   pointer-events: auto;
+  user-select: none;
+  touch-action: none;
+  /* Disable native scroll/zoom when dragging button */
   width: 44px;
   height: 44px;
   border-radius: 50%;
