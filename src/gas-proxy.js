@@ -8,10 +8,29 @@
  */
 
 function doPost(e) {
+    return handleRequest(e);
+}
+
+function doGet(e) {
+    return handleRequest(e);
+}
+
+function handleRequest(e) {
     try {
-        const params = JSON.parse(e.postData.contents);
-        const url = params.url;
-        const cookies = params.cookies;
+        let url = '';
+        let cookies = '';
+
+        // POST (application/x-www-form-urlencoded) または GET パラメータの取得
+        if (e.parameter && e.parameter.url) {
+            url = e.parameter.url;
+            cookies = e.parameter.cookies;
+        }
+        // JSON POST のフォールバック
+        else if (e.postData && e.postData.contents) {
+            const params = JSON.parse(e.postData.contents);
+            url = params.url;
+            cookies = params.cookies;
+        }
 
         if (!url) {
             return createJsonResponse({ error: 'URL is required' });
@@ -68,13 +87,13 @@ function extractBloombergContent(html) {
     const titleMatch = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
     if (titleMatch) title = titleMatch[1].replace(/<[^>]*>/g, '').trim();
 
-    // Bloombergの本文コンテナを探す（よく使われるクラス名）
+    // Bloombergの本文コンテナを探す（優先順位順）
     let body = '';
 
-    // セレクタ候補を順番に試す
     const bodySelectors = [
         '<div[^>]*class="[^"]*body-copy[^"]*"[^>]*>([\\s\\S]*?)<\\/div>',
         '<div[^>]*data-component="article-body"[^>]*>([\\s\\S]*?)<\\/div>',
+        '<div[^>]*class="[^"]*article-body[^"]*"[^>]*>([\\s\\S]*?)<\\/div>',
         '<article[^>]*>([\\s\\S]*?)<\\/article>'
     ];
 
@@ -82,11 +101,11 @@ function extractBloombergContent(html) {
         const match = html.match(new RegExp(selector, 'i'));
         if (match) {
             body = match[1];
-            break;
+            // もし抽出された中身が短すぎる（例: 広告のみ）場合は次を試す
+            if (body.length > 500) break;
         }
     }
 
-    // 万が一見つからない場合は全体を返す（デバッグ用）
     if (!body) {
         body = '<p style="color:red">本文の抽出に失敗しました。ロジックの調整が必要です。</p>';
     }
@@ -95,9 +114,13 @@ function extractBloombergContent(html) {
     body = body.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
     body = body.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
     body = body.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '');
+    body = body.replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '');
 
-    // 画像パスの正規化（相対パスを絶対パスへ）
+    // 画像パスの正規化
     body = body.replace(/src="\/([^"]+)"/g, 'src="https://www.bloomberg.com/$1"');
+    // アンカータグの無効化（リーダー内での事故防止）
+    body = body.replace(/<a /gi, '<span style="color:var(--accent-color)" ');
+    body = body.replace(/<\/a>/gi, '</span>');
 
     return { title, body };
 }
@@ -106,6 +129,6 @@ function createJsonResponse(data) {
     const output = ContentService.createTextOutput(JSON.stringify(data))
         .setMimeType(ContentService.MimeType.JSON);
 
-    // CORSヘッダーの付加
+    // GASのContentServiceは自動的に CORS: * を付与することが多いですが、明示的に追加を試みます
     return output.addHeader('Access-Control-Allow-Origin', '*');
 }

@@ -338,18 +338,35 @@ async function openReaderView(url, title = 'Article') {
       <div style="padding: 40px; text-align: center;">
         <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
         <p style="font-size: 13px;">設定ボタン (⚙️) から GAS ウェブアプリの URL を入力してください。</p>
-        <button class="btn-primary" onclick="document.getElementById('pro-settings-btn').click(); document.getElementById('reader-view').style.display='none';">設定を開く</button>
+        <button id="reader-open-settings" class="btn-primary" style="margin-top:20px;">設定を開く</button>
       </div>
     `;
+    const openSettingsBtn = document.getElementById('reader-open-settings');
+    if (openSettingsBtn) {
+      openSettingsBtn.onclick = () => {
+        document.getElementById('pro-settings-btn').click();
+        closeReaderView();
+      };
+    }
     return;
   }
 
   try {
     const cookies = CookieBridge.getSavedCookies();
+
+    // Switch to simple request (application/x-www-form-urlencoded) to avoid CORS preflight (OPTIONS)
+    const formData = new URLSearchParams();
+    formData.append('url', url);
+    formData.append('cookies', cookies);
+
     const response = await fetch(STATE.gasUrl, {
       method: 'POST',
-      body: JSON.stringify({ url, cookies })
+      body: formData // This sends as application/x-www-form-urlencoded by default
     });
+
+    if (!response.ok) {
+      throw new Error(`Proxy returned status ${response.status}`);
+    }
 
     const data = await response.json();
 
@@ -369,11 +386,16 @@ async function openReaderView(url, title = 'Article') {
     console.error('Extraction error:', err);
     readerBody.innerHTML = `
       <div style="padding: 40px; text-align: center;">
-        <p style="color: #ff7b72;">エラーが発生しました: ${err.message}</p>
-        <p style="font-size: 12px; margin-top: 20px;">URL: ${url}</p>
-        <button class="btn-secondary" onclick="closeReaderView()" style="margin-top: 20px;">戻る</button>
+        <p style="color: #ff7b72; font-weight: bold;">エラーが発生しました: ${err.name === 'TypeError' ? '取得に失敗しました (CORS またはネットワークエラー)' : err.message}</p>
+        <p style="font-size: 11px; margin-top: 20px; word-break: break-all; opacity: 0.6;">URL: ${url}</p>
+        <button id="reader-error-back" class="btn-secondary" style="margin-top: 20px;">戻る</button>
+        <p style="font-size: 12px; margin-top: 10px; opacity: 0.7;">※GASのデプロイ設定が「全員(Anyone)」になっているか確認してください。</p>
       </div>
     `;
+    const backBtn = document.getElementById('reader-error-back');
+    if (backBtn) {
+      backBtn.onclick = closeReaderView;
+    }
   }
 }
 
