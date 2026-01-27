@@ -439,8 +439,11 @@ textarea {
   height: 100%;
   background: var(--bg-color);
   z-index: 1500;
-  display: flex;
+  display: none;
+  /* Initially hidden */
   flex-direction: column;
+  background-color: var(--bg-color);
+  /* Ensure solid background */
   animation: slideIn 0.3s ease-out;
 }
 
@@ -481,7 +484,8 @@ textarea {
 .reader-content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 0;
+  /* Remove padding to avoid gaps */
   -webkit-overflow-scrolling: touch;
 }
 
