@@ -66,7 +66,7 @@
 ### 5.1 フロントエンド
 - **フレームワーク**: Vanilla JavaScript (ES6+), CSS3.
 - **ビルドツール**: Vite.
-- **ホスティング**: GitHub Pages (サブライブラリ `/bloomberg-mail-stream/` 下で動作).
+- **ホスティング**: GitHub Pages (サブライブラリ `/logiris-reader-pro/` 下で動作).
 - **パス解決**: サブフォルダ構成に対応するため、アセット（manifest, favicon等）はすべて **相対パス** で管理。
 
 ### 5.2 セキュリティと認証

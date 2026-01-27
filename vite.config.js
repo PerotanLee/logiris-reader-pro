@@ -1,7 +1,7 @@
 
 /** @type {import('vite').UserConfig} */
 export default {
-  base: '/bloomberg-mail-stream/',
+  base: '/logiris-reader-pro/',
   build: {
     outDir: 'dist',
   }
