@@ -17,6 +17,13 @@ const app = document.getElementById('app');
 const streamContainer = document.getElementById('stream-container');
 const nextBtn = document.getElementById('next-btn');
 
+// --- Global Error Handling ---
+window.onerror = (msg, url, line, col, error) => {
+  console.error("Global Error:", msg, "at", url, line, ":", col);
+  // alert("エラーが発生しました: " + msg);
+  return false;
+};
+
 // --- Settings UI ---
 function showSettingsModal() {
   const overlay = document.createElement('div');
@@ -121,6 +128,7 @@ async function renderEmail(msgDetails, index, total) {
     const card = document.createElement('div');
     card.className = `email-card ${isUnread ? 'unread' : ''}`;
     card.id = `card-${msgDetails.id}`;
+    card.setAttribute('data-subject', subject); // For proxy use
 
     // Add to navigation dropdown
     const nav = document.getElementById('email-nav');
@@ -150,25 +158,12 @@ async function renderEmail(msgDetails, index, total) {
     const contentDiv = card.querySelector('.email-content-view');
     contentDiv.innerHTML = bodyHtml;
 
-    // Intercept Bloomberg links for Reader Mode
-    contentDiv.querySelectorAll('a').forEach(link => {
-      const url = link.href;
-      if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          console.log("Interception triggered for:", url);
-          openReaderView(url, subject).catch(err => {
-            console.error("Reader view failed to open:", err);
-            alert("エラー: 記事を開けませんでした。");
-          });
-        });
-      }
-    });
+    // Intercepting links is now handled via delegated event listener on streamContainer
 
     // Basic styling for content safety
     contentDiv.style.backgroundColor = '#ffffff';
     contentDiv.style.color = '#000000';
-    contentDiv.style.padding = '8px';
+    contentDiv.style.padding = '12px';
     contentDiv.style.borderRadius = '4px';
     contentDiv.style.overflowX = 'auto';
 
@@ -277,6 +272,25 @@ function setupNavigation() {
       setTimeout(() => { nav.value = ""; }, 100);
     }
   });
+
+  // DELEGATED EVENT LISTENER for link interception
+  streamContainer.addEventListener('click', (e) => {
+    const link = e.target.closest('a');
+    if (link) {
+      const url = link.href;
+      if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("Delegated link click detected:", url);
+        // Find the nearest card to get the subject as title
+        const card = link.closest('.email-card');
+        const subject = card ? card.getAttribute('data-subject') : 'Article';
+        openReaderView(url, subject).catch(err => {
+          console.error("Reader view error:", err);
+        });
+      }
+    }
+  });
 }
 
 function setupZoom() {
@@ -294,69 +308,65 @@ function setupZoom() {
 
 // --- Reader View Logic ---
 async function openReaderView(url, title = 'Article') {
-  console.log("openReaderView called for:", url);
-  const readerView = document.getElementById('reader-view');
-  const readerTitle = document.getElementById('reader-title');
-  const readerBody = document.getElementById('reader-article-body');
-  const externalBtn = document.getElementById('reader-external-btn');
+  try {
+    console.log("Attempting to open Reader View for:", url);
+    const readerView = document.getElementById('reader-view');
+    const readerTitle = document.getElementById('reader-title');
+    const readerBody = document.getElementById('reader-article-body');
+    const externalBtn = document.getElementById('reader-external-btn');
 
-  if (!readerView || !readerBody) {
-    console.error("Reader view elements missing!");
-    return;
-  }
+    if (!readerView || !readerBody) {
+      console.error("Reader View DOM items not found!");
+      return;
+    }
 
-  // FORCE VISIBILITY FIRST
-  readerTitle.textContent = title;
-  readerView.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+    // Immediately show view
+    readerTitle.textContent = title;
+    readerView.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 
-  // Initial loading state
-  readerBody.innerHTML = `
-    <div style="padding: 40px; text-align: center;">
-      <p>Fetching full-text via Article Engine...</p>
-      <div class="loading-spinner"></div>
-    </div>
-  `;
-
-  externalBtn.onclick = () => window.open(url, '_blank');
-
-  if (!STATE.gasUrl) {
-    console.warn("No gasUrl configured");
     readerBody.innerHTML = `
       <div style="padding: 40px; text-align: center;">
-        <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
-        <p style="font-size: 13px;">設定ボタン (⚙️) から GAS ウェブアプリの URL を入力してください。</p>
-        <button id="reader-open-settings" class="btn-primary" style="margin-top:20px;">設定を開く</button>
+        <p>Fetching full-text via Article Engine...</p>
+        <div class="loading-spinner"></div>
       </div>
     `;
-    const openSettingsBtn = document.getElementById('reader-open-settings');
-    if (openSettingsBtn) {
-      openSettingsBtn.onclick = () => {
-        document.getElementById('pro-settings-btn').click();
-        closeReaderView();
-      };
-    }
-    return;
-  }
 
-  try {
+    externalBtn.onclick = () => window.open(url, '_blank');
+
+    if (!STATE.gasUrl) {
+      readerBody.innerHTML = `
+        <div style="padding: 40px; text-align: center;">
+          <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
+          <p style="font-size: 13px;">設定ボタン (⚙️) から GAS ウェブアプリの URL を入力してください。</p>
+          <button id="reader-open-settings" class="btn-primary" style="margin-top:20px;">設定を開く</button>
+        </div>
+      `;
+      const sBtn = document.getElementById('reader-open-settings');
+      if (sBtn) {
+        sBtn.onclick = () => {
+          document.getElementById('pro-settings-btn').click();
+          closeReaderView();
+        };
+      }
+      return;
+    }
+
     const cookies = CookieBridge.getSavedCookies();
     const formData = new URLSearchParams();
     formData.append('url', url);
     formData.append('cookies', cookies);
 
-    console.log("Sending request to GAS:", STATE.gasUrl);
     const response = await fetch(STATE.gasUrl, {
       method: 'POST',
       body: formData
     });
 
     if (!response.ok) {
-      throw new Error(`Proxy returned status ${response.status}`);
+      throw new Error(`Proxy status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("Received data from GAS:", data.success ? "Success" : "Error");
 
     if (data.success) {
       readerBody.innerHTML = `
@@ -368,36 +378,32 @@ async function openReaderView(url, title = 'Article') {
         </div>
       `;
     } else {
-      throw new Error(data.error || '本文の取得に失敗しました。');
+      throw new Error(data.error || '本文の取得に失敗しました');
     }
+
   } catch (err) {
-    console.error('Extraction error details:', err);
-    readerBody.innerHTML = `
+    console.error('Reader View Exception:', err);
+    document.getElementById('reader-article-body').innerHTML = `
       <div style="padding: 40px; text-align: center;">
-        <p style="color: #ff7b72; font-weight: bold;">エラーが発生しました: ${err.name === 'TypeError' ? '取得に失敗しました (CORS またはネットワークエラー)' : err.message}</p>
-        <p style="font-size: 11px; margin-top: 20px; word-break: break-all; opacity: 0.6;">URL: ${url}</p>
-        <button id="reader-error-back" class="btn-secondary" style="margin-top: 20px;">戻る</button>
-        <p style="font-size: 12px; margin-top: 10px; opacity: 0.7;">※GASのデプロイ設定が「全員(Anyone)」になっているか確認してください。</p>
+        <p style="color: #ff7b72; font-weight: bold;">エラー: ${err.name === 'TypeError' ? '通信エラー (CORS またはネットワーク)' : err.message}</p>
+        <p style="font-size: 10px; opacity: 0.5; margin-top: 20px; word-break: break-all;">${url}</p>
+        <button id="reader-err-back" class="btn-secondary" style="margin-top:20px;">戻る</button>
       </div>
     `;
-    const backBtn = document.getElementById('reader-error-back');
-    if (backBtn) {
-      backBtn.onclick = closeReaderView;
-    }
+    const b = document.getElementById('reader-err-back');
+    if (b) b.onclick = closeReaderView;
   }
 }
 
 function closeReaderView() {
-  const readerView = document.getElementById('reader-view');
-  if (readerView) readerView.style.display = 'none';
+  const v = document.getElementById('reader-view');
+  if (v) v.style.display = 'none';
   document.body.style.overflow = '';
 }
 
 function setupReaderNavigation() {
-  const backBtn = document.getElementById('back-to-list-btn');
-  if (backBtn) {
-    backBtn.onclick = closeReaderView;
-  }
+  const b = document.getElementById('back-to-list-btn');
+  if (b) b.onclick = closeReaderView;
 }
 
 // --- Pro Settings UI ---
@@ -444,21 +450,17 @@ function setupProSettings() {
 // --- Initialization ---
 function loadScript(src) {
   return new Promise((resolve, reject) => {
-    console.log(`Loading script: ${src}`);
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => { resolve(); };
-    script.onerror = () => { reject(new Error(`Failed to load script: ${src}`)); };
-    document.head.appendChild(script);
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Load fail: ${src}`));
+    document.head.appendChild(s);
   });
 }
 
 function checkDeviceType() {
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  if (isTouchDevice || isMobileUA) {
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || /Android/i.test(navigator.userAgent)) {
     document.body.classList.add('is-mobile-view');
   }
 }
@@ -471,38 +473,39 @@ async function initApp() {
 
   window.handleGoogleAuth = () => {
     handleAuthClick(async () => {
-      document.getElementById('auth-status').textContent = 'Connected';
+      const s = document.getElementById('auth-status');
+      if (s) s.textContent = 'Connected';
       await loadEmails();
     });
   };
 
   try {
-    const authStatus = document.getElementById('auth-status');
-    authStatus.textContent = "Initializing Google Services...";
+    const s = document.getElementById('auth-status');
+    if (s) s.textContent = "Loading Services...";
     await loadScript('https://apis.google.com/js/api.js');
     await loadScript('https://accounts.google.com/gsi/client');
     await new Promise((resolve) => gapi.load('client', resolve));
     await gapiLoaded();
     gisLoaded(STATE.clientId);
-    authStatus.textContent = "";
-    const savedToken = localStorage.getItem('gmail_access_token');
-    if (savedToken) {
+    if (s) s.textContent = "";
+
+    if (localStorage.getItem('gmail_access_token')) {
       handleGoogleAuth();
-    } else {
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign In / Connect';
-      btn.className = 'btn-text';
-      btn.onclick = window.handleGoogleAuth;
-      authStatus.appendChild(btn);
+    } else if (s) {
+      const b = document.createElement('button');
+      b.textContent = 'Sign In';
+      b.className = 'btn-text';
+      b.onclick = window.handleGoogleAuth;
+      s.appendChild(b);
     }
   } catch (e) {
-    console.error("Initialization Error:", e);
-    const authStatus = document.getElementById('auth-status');
-    authStatus.innerHTML = `<div style="color: #ff7b72; font-size: 12px; text-align: right;">Loading Error. <button onclick="location.reload()" style="background:none; border:1px solid #ff7b72; color:#ff7b72; border-radius:4px; cursor:pointer;">Retry</button></div>`;
+    console.error("Init fail:", e);
+    const s = document.getElementById('auth-status');
+    if (s) s.innerHTML = `Error. <button onclick="location.reload()">Retry</button>`;
   }
 }
 
-// Main logic
+// Entry Point
 setupProSettings();
 if (!STATE.clientId) {
   showSettingsModal();
@@ -510,59 +513,25 @@ if (!STATE.clientId) {
   initApp();
 }
 
-// Page Down Logic
-let isDragging = false;
-let startY = 0;
-let initialTop = 0;
-const fabContainer = document.querySelector('.fab-container');
-
+// FAB Scroll Down
 if (nextBtn) {
-  nextBtn.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
-
-  nextBtn.onpointerdown = (e) => {
-    if (!document.body.classList.contains('is-mobile-view')) { isDragging = false; return; }
-    isDragging = false;
-    startY = e.clientY;
-    const rect = fabContainer.getBoundingClientRect();
-    initialTop = rect.top;
-    nextBtn.setPointerCapture(e.pointerId);
-  };
-
-  nextBtn.onpointermove = (e) => {
-    const deltaY = Math.abs(e.clientY - startY);
-    if (deltaY > 5) {
-      isDragging = true;
-      const newTop = initialTop + (e.clientY - startY);
-      const boundedTop = Math.max(60, Math.min(window.innerHeight - 60, newTop));
-      fabContainer.style.top = `${boundedTop}px`;
-      fabContainer.style.bottom = 'auto';
-      fabContainer.style.transform = 'none';
-    }
-  };
-
   nextBtn.onpointerup = (e) => {
-    nextBtn.releasePointerCapture(e.pointerId);
-    if (!isDragging) {
-      const readerView = document.getElementById('reader-view');
-      const isReaderOpen = readerView && readerView.style.display !== 'none';
-      if (isReaderOpen) {
-        const readerArea = document.getElementById('reader-content-area');
-        readerArea.scrollBy({ top: readerArea.clientHeight * 0.9, behavior: 'auto' });
-      } else {
-        window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
-      }
+    const r = document.getElementById('reader-view');
+    if (r && r.style.display !== 'none') {
+      document.getElementById('reader-content-area').scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
+    } else {
+      window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
     }
   };
 }
 
+// Keydown Scroll
 window.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'PageDown') {
     e.preventDefault();
-    const readerView = document.getElementById('reader-view');
-    const isReaderOpen = readerView && readerView.style.display !== 'none';
-    if (isReaderOpen) {
-      const readerArea = document.getElementById('reader-content-area');
-      readerArea.scrollBy({ top: readerArea.clientHeight * 0.9, behavior: 'auto' });
+    const r = document.getElementById('reader-view');
+    if (r && r.style.display !== 'none') {
+      document.getElementById('reader-content-area').scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
     } else {
       window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
     }
