@@ -6,6 +6,7 @@ import { CookieBridge } from './cookie-bridge.js';
 // Configuration State
 const STATE = {
   clientId: localStorage.getItem('bloomberg_client_id') || '',
+  gasUrl: localStorage.getItem('logiris_gas_url') || '',
   nextPageToken: null,
   isLoading: false,
   emails: []
@@ -357,6 +358,7 @@ function setupProSettings() {
   const saveBtn = document.getElementById('save-cookies-btn');
   const copyBtn = document.getElementById('copy-bookmarklet-btn');
   const cookieInput = document.getElementById('cookie-input');
+  const gasUrlInput = document.getElementById('common-gas-url'); // New input
   const bookmarkletCode = document.getElementById('bookmarklet-code');
 
   if (!proBtn || !proModal) return;
@@ -366,6 +368,7 @@ function setupProSettings() {
 
   proBtn.onclick = () => {
     cookieInput.value = CookieBridge.getSavedCookies();
+    gasUrlInput.value = STATE.gasUrl; // Load current GAS URL
     proModal.style.display = 'flex';
   };
 
@@ -386,6 +389,9 @@ function setupProSettings() {
 
   saveBtn.onclick = () => {
     CookieBridge.saveCookies(cookieInput.value);
+    const newGasUrl = gasUrlInput.value.trim();
+    localStorage.setItem('logiris_gas_url', newGasUrl);
+    STATE.gasUrl = newGasUrl;
     alert('Settings saved!');
     proModal.style.display = 'none';
   };
