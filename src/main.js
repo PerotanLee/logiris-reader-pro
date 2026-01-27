@@ -313,28 +313,68 @@ function setupZoom() {
 }
 
 // --- Reader View Logic ---
-function openReaderView(url, title = 'Article') {
+async function openReaderView(url, title = 'Article') {
   const readerView = document.getElementById('reader-view');
   const readerTitle = document.getElementById('reader-title');
   const readerBody = document.getElementById('reader-article-body');
   const externalBtn = document.getElementById('reader-external-btn');
 
   readerTitle.textContent = title;
+  readerView.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Initial loading state
   readerBody.innerHTML = `
     <div style="padding: 40px; text-align: center;">
-      <p>Loading full-text via Cookie Bridge...</p>
+      <p>Fetching full-text via Article Engine...</p>
       <div class="loading-spinner"></div>
-      <p style="font-size: 11px; color: #666; margin-top: 10px;">${url}</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-      <p style="font-size: 13px; color: #333;">※現在はプロトタイプ段階のため、<br>
-      実際の内容抽出（Proxy）は次のステップで実装されます。</p>
     </div>
   `;
 
   externalBtn.onclick = () => window.open(url, '_blank');
 
-  readerView.style.display = 'flex';
-  document.body.style.overflow = 'hidden'; // Prevent main list scrolling
+  if (!STATE.gasUrl) {
+    readerBody.innerHTML = `
+      <div style="padding: 40px; text-align: center;">
+        <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
+        <p style="font-size: 13px;">設定ボタン (⚙️) から GAS ウェブアプリの URL を入力してください。</p>
+        <button class="btn-primary" onclick="document.getElementById('pro-settings-btn').click(); document.getElementById('reader-view').style.display='none';">設定を開く</button>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    const cookies = CookieBridge.getSavedCookies();
+    const response = await fetch(STATE.gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({ url, cookies })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      readerBody.innerHTML = `
+        <div class="article-container" style="padding: 20px; max-width: 800px; margin: 0 auto; line-height: 1.8;">
+          <h1 style="font-size: 24px; margin-bottom: 24px; color: var(--text-primary);">${data.title || title}</h1>
+          <div class="article-body-content" style="font-size: 18px; color: var(--text-primary);">
+            ${data.body}
+          </div>
+        </div>
+      `;
+    } else {
+      throw new Error(data.error || '本文の取得に失敗しました。');
+    }
+  } catch (err) {
+    console.error('Extraction error:', err);
+    readerBody.innerHTML = `
+      <div style="padding: 40px; text-align: center;">
+        <p style="color: #ff7b72;">エラーが発生しました: ${err.message}</p>
+        <p style="font-size: 12px; margin-top: 20px;">URL: ${url}</p>
+        <button class="btn-secondary" onclick="closeReaderView()" style="margin-top: 20px;">戻る</button>
+      </div>
+    `;
+  }
 }
 
 function closeReaderView() {
