@@ -152,6 +152,17 @@ async function renderEmail(msgDetails, index, total) {
     const contentDiv = card.querySelector('.email-content-view');
     contentDiv.innerHTML = bodyHtml;
 
+    // Intercept Bloomberg links for Reader Mode
+    contentDiv.querySelectorAll('a').forEach(link => {
+      const url = link.href;
+      if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          openReaderView(url, subject);
+        });
+      }
+    });
+
     // Basic styling for content safety
     contentDiv.style.backgroundColor = '#ffffff';
     contentDiv.style.color = '#000000';
@@ -300,6 +311,44 @@ function setupZoom() {
   });
 }
 
+// --- Reader View Logic ---
+function openReaderView(url, title = 'Article') {
+  const readerView = document.getElementById('reader-view');
+  const readerTitle = document.getElementById('reader-title');
+  const readerBody = document.getElementById('reader-article-body');
+  const externalBtn = document.getElementById('reader-external-btn');
+
+  readerTitle.textContent = title;
+  readerBody.innerHTML = `
+    <div style="padding: 40px; text-align: center;">
+      <p>Loading full-text via Cookie Bridge...</p>
+      <div class="loading-spinner"></div>
+      <p style="font-size: 11px; color: #666; margin-top: 10px;">${url}</p>
+      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+      <p style="font-size: 13px; color: #333;">※現在はプロトタイプ段階のため、<br>
+      実際の内容抽出（Proxy）は次のステップで実装されます。</p>
+    </div>
+  `;
+
+  externalBtn.onclick = () => window.open(url, '_blank');
+
+  readerView.style.display = 'flex';
+  document.body.style.overflow = 'hidden'; // Prevent main list scrolling
+}
+
+function closeReaderView() {
+  const readerView = document.getElementById('reader-view');
+  readerView.style.display = 'none';
+  document.body.style.overflow = ''; // Restore scrolling
+}
+
+function setupReaderNavigation() {
+  const backBtn = document.getElementById('back-to-list-btn');
+  if (backBtn) {
+    backBtn.onclick = closeReaderView;
+  }
+}
+
 // --- Pro Settings UI ---
 function setupProSettings() {
   const proBtn = document.getElementById('pro-settings-btn');
@@ -378,6 +427,7 @@ async function initApp() {
   checkDeviceType(); // Detect device on init
   setupNavigation();
   setupZoom();
+  setupReaderNavigation();
 
   window.handleGoogleAuth = () => {
     handleAuthClick(async () => {
@@ -477,21 +527,44 @@ nextBtn.onpointermove = (e) => {
 nextBtn.onpointerup = (e) => {
   nextBtn.releasePointerCapture(e.pointerId);
   if (!isDragging) {
-    // It's a click
-    window.scrollBy({
-      top: window.innerHeight * 0.9,
-      behavior: 'auto'
-    });
+    // Check if Reader View is open
+    const readerView = document.getElementById('reader-view');
+    const isReaderOpen = readerView && readerView.style.display !== 'none';
+
+    if (isReaderOpen) {
+      const readerArea = document.getElementById('reader-content-area');
+      readerArea.scrollBy({
+        top: readerArea.clientHeight * 0.9,
+        behavior: 'auto'
+      });
+    } else {
+      window.scrollBy({
+        top: window.innerHeight * 0.9,
+        behavior: 'auto'
+      });
+    }
   }
 };
 
 window.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'PageDown') {
     e.preventDefault();
-    // Simulate click scroll
-    window.scrollBy({
-      top: window.innerHeight * 0.9,
-      behavior: 'auto'
-    });
+
+    // Check if Reader View is open
+    const readerView = document.getElementById('reader-view');
+    const isReaderOpen = readerView && readerView.style.display !== 'none';
+
+    if (isReaderOpen) {
+      const readerArea = document.getElementById('reader-content-area');
+      readerArea.scrollBy({
+        top: readerArea.clientHeight * 0.9,
+        behavior: 'auto'
+      });
+    } else {
+      window.scrollBy({
+        top: window.innerHeight * 0.9,
+        behavior: 'auto'
+      });
+    }
   }
 });
