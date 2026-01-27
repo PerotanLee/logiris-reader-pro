@@ -218,8 +218,8 @@ body {
 /* FAB */
 .fab-container {
   position: fixed;
-  top: 55%;
-  /* Default to mid-height for easier access */
+  bottom: 24px;
+  /* Default for Desktop */
   right: 20px;
   z-index: 1000;
   display: flex;
@@ -227,11 +227,18 @@ body {
   pointer-events: none;
 }
 
+/* Mobile specific positioning - Center Right */
+body.is-mobile-view .fab-container {
+  top: 50%;
+  bottom: auto;
+}
+
 .fab-btn {
   pointer-events: auto;
   user-select: none;
   touch-action: none;
-  /* Disable native scroll/zoom when dragging button */
+  -webkit-touch-callout: none;
+  /* Disable iOS/Safari long-press menu */
   width: 44px;
   height: 44px;
   border-radius: 50%;
