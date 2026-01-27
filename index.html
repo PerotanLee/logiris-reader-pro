@@ -34,6 +34,7 @@
           <option value="2.0">Zoom: 200%</option>
         </select>
         <div id="auth-status"></div>
+        <button id="pro-settings-btn" class="header-icon-btn" title="Pro Settings">⚙️</button>
       </div>
     </header>
 
@@ -48,6 +49,33 @@
       <button id="next-btn" class="fab-btn" aria-label="Scroll Down">
         ▼
       </button>
+    </div>
+
+    <!-- Pro Settings Modal -->
+    <div id="pro-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <h3>Pro Settings</h3>
+        <p class="modal-desc">Bloomberg有料記事の全文を表示するために、ログイン情報を同期します。</p>
+
+        <div class="setting-group">
+          <label>1. クッキー取得ツールの準備</label>
+          <div class="code-box">
+            <code id="bookmarklet-code">Bookmarklet Loading...</code>
+            <button id="copy-bookmarklet-btn" class="btn-sm">Copy</button>
+          </div>
+          <small>※このコードをPCブラウザのお気に入りに登録し、Bloombergのサイト上で実行してください。</small>
+        </div>
+
+        <div class="setting-group">
+          <label>2. 取得したクッキーを貼り付け</label>
+          <textarea id="cookie-input" placeholder="exp_last_session=..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button id="close-modal-btn" class="btn-secondary">Close</button>
+          <button id="save-cookies-btn" class="btn-primary">Save Settings</button>
+        </div>
+      </div>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>

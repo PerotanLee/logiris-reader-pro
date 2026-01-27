@@ -1,6 +1,7 @@
 
 import './style.css';
 import { gapiLoaded, gisLoaded, handleAuthClick, listBloombergEmails, getEmailDetails, markAsRead, batchMarkAsRead } from './gmail.js';
+import { CookieBridge } from './cookie-bridge.js';
 
 // Configuration State
 const STATE = {
@@ -299,6 +300,48 @@ function setupZoom() {
   });
 }
 
+// --- Pro Settings UI ---
+function setupProSettings() {
+  const proBtn = document.getElementById('pro-settings-btn');
+  const proModal = document.getElementById('pro-modal');
+  const closeBtn = document.getElementById('close-modal-btn');
+  const saveBtn = document.getElementById('save-cookies-btn');
+  const copyBtn = document.getElementById('copy-bookmarklet-btn');
+  const cookieInput = document.getElementById('cookie-input');
+  const bookmarkletCode = document.getElementById('bookmarklet-code');
+
+  if (!proBtn || !proModal) return;
+
+  // Set bookmarklet code
+  bookmarkletCode.textContent = CookieBridge.getBookmarkletCode();
+
+  proBtn.onclick = () => {
+    cookieInput.value = CookieBridge.getSavedCookies();
+    proModal.style.display = 'flex';
+  };
+
+  closeBtn.onclick = () => {
+    proModal.style.display = 'none';
+  };
+
+  proModal.onclick = (e) => {
+    if (e.target === proModal) proModal.style.display = 'none';
+  };
+
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(CookieBridge.getBookmarkletCode());
+    const originalText = copyBtn.textContent;
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+  };
+
+  saveBtn.onclick = () => {
+    CookieBridge.saveCookies(cookieInput.value);
+    alert('Settings saved!');
+    proModal.style.display = 'none';
+  };
+}
+
 // --- Initialization ---
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -335,6 +378,7 @@ async function initApp() {
   checkDeviceType(); // Detect device on init
   setupNavigation();
   setupZoom();
+  setupProSettings();
 
   window.handleGoogleAuth = () => {
     handleAuthClick(async () => {
