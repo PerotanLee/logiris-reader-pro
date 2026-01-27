@@ -238,8 +238,8 @@ body {
   /* Slightly smaller for mobile */
   height: 44px;
   border-radius: 50%;
-  background: rgba(47, 129, 247, 0.3);
-  /* Transparent Blue */
+  background: rgba(47, 129, 247, 0.25);
+  /* More transparent Blue */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #fff;
@@ -251,17 +251,22 @@ body {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  opacity: 0.8;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Remove mobile tap highlight */
 }
 
-.fab-btn:hover {
-  background: rgba(47, 129, 247, 0.6);
-  opacity: 1;
-  transform: translateY(-2px);
+/* Hover effects only for devices that support hover (prevents "stuck" state on mobile) */
+@media (hover: hover) {
+  .fab-btn:hover {
+    background: rgba(47, 129, 247, 0.6);
+    transform: translateY(-2px);
+  }
 }
 
 .fab-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.95);
+  background: rgba(47, 129, 247, 0.8);
 }
 
 .btn-primary {
