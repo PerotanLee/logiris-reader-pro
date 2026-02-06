@@ -76,6 +76,7 @@ body {
   height: 40px;
   width: auto;
   display: block;
+  cursor: pointer;
 }
 
 .app-header h1 {
@@ -242,15 +243,15 @@ body.is-mobile-view .fab-container {
   touch-action: none;
   -webkit-touch-callout: none;
   /* Disable iOS/Safari long-press menu */
-  width: 44px;
-  height: 44px;
+  width: var(--fab-size);
+  height: var(--fab-size);
   border-radius: 50%;
   background: rgba(47, 129, 247, 0.05);
   /* Extremely Transparent */
   color: rgba(255, 255, 255, 0.3);
   /* Fainter glyph */
   border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 18px;
+  font-size: 24px;
   box-shadow: none;
   cursor: pointer;
   display: flex;

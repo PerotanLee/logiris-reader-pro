@@ -426,6 +426,12 @@ function setupProSettings() {
     alert('Settings saved!');
     proModal.style.display = 'none';
   };
+
+  // Logo reload
+  const logo = document.querySelector('.app-logo');
+  if (logo) {
+    logo.onclick = () => window.location.reload();
+  }
 }
 
 // --- Initialization ---
