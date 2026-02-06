@@ -500,25 +500,30 @@ if (!STATE.clientId) {
 if (nextBtn) {
   let isDragging = false;
   let startY = 0;
-  let currentTop = 0;
   let dragStarted = false;
+  let startPageY = 0;
 
   const container = nextBtn.parentElement;
 
   nextBtn.onpointerdown = (e) => {
     isDragging = true;
     startY = e.clientY - container.offsetTop;
+    startPageY = e.clientY;
     dragStarted = false;
     nextBtn.setPointerCapture(e.pointerId);
   };
 
   nextBtn.onpointermove = (e) => {
     if (!isDragging) return;
-    dragStarted = true;
-    const y = e.clientY - startY;
-    container.style.top = `${y}px`;
-    container.style.bottom = 'auto';
-    container.style.transform = 'none';
+
+    const deltaY = Math.abs(e.clientY - startPageY);
+    if (deltaY > 5) {
+      dragStarted = true;
+      const y = e.clientY - startY;
+      container.style.top = `${y}px`;
+      container.style.bottom = 'auto';
+      container.style.transform = 'none';
+    }
   };
 
   nextBtn.onpointerup = (e) => {
