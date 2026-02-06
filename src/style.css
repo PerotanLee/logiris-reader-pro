@@ -232,8 +232,7 @@ body {
 /* Mobile specific positioning - Physical Center Right */
 body.is-mobile-view .fab-container {
   top: 42%;
-  /* Slightly higher than mathematical 50% to feel more "centered" relative to device */
-  transform: translateY(-50%);
+  /* Removed translateY centering to allow manual positioning via JS */
   bottom: auto;
 }
 

@@ -496,15 +496,49 @@ if (!STATE.clientId) {
   initApp();
 }
 
-// FAB Scroll Down
+// FAB Scroll Down & Draggable
 if (nextBtn) {
+  let isDragging = false;
+  let startY = 0;
+  let currentTop = 0;
+  let dragStarted = false;
+
+  const container = nextBtn.parentElement;
+
+  nextBtn.onpointerdown = (e) => {
+    isDragging = true;
+    startY = e.clientY - container.offsetTop;
+    dragStarted = false;
+    nextBtn.setPointerCapture(e.pointerId);
+  };
+
+  nextBtn.onpointermove = (e) => {
+    if (!isDragging) return;
+    dragStarted = true;
+    const y = e.clientY - startY;
+    container.style.top = `${y}px`;
+    container.style.bottom = 'auto';
+    container.style.transform = 'none';
+  };
+
   nextBtn.onpointerup = (e) => {
-    const r = document.getElementById('reader-view');
-    if (r && r.style.display !== 'none') {
-      document.getElementById('reader-content-area').scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
-    } else {
-      window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
+    if (!isDragging) return;
+    isDragging = false;
+    nextBtn.releasePointerCapture(e.pointerId);
+
+    // If it wasn't a significant drag, treat as click
+    if (!dragStarted) {
+      const r = document.getElementById('reader-view');
+      if (r && r.style.display !== 'none') {
+        document.getElementById('reader-content-area').scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
+      } else {
+        window.scrollBy({ top: window.innerHeight * 0.9, behavior: 'auto' });
+      }
     }
+  };
+
+  nextBtn.onpointercancel = () => {
+    isDragging = false;
   };
 }
 
