@@ -99,6 +99,101 @@ function extractBodyData(payload) {
   return { html: htmlBody || payload.snippet || "" };
 }
 
+function processFooterRemoval(html) {
+  if (!html) return html;
+
+  const markers = [
+    "More From Bloomberg",
+    "Popular on Bloomberg.com",
+    "Follow us",
+    "You received this message",
+    "Unsubscribe",
+    "ご登録いただきありがとうございます",
+    "登録内容の変更"
+  ];
+
+  const lowerHtml = html.toLowerCase();
+  let bestIndex = -1;
+
+  for (const m of markers) {
+    let searchPos = 0;
+    const needle = m.toLowerCase();
+    while (true) {
+      const idx = lowerHtml.indexOf(needle, searchPos);
+      if (idx === -1) break;
+
+      // Ensure it's in the latter part of the document (last 50%)
+      if (idx > lowerHtml.length * 0.5) {
+        if (bestIndex === -1 || idx < bestIndex) {
+          bestIndex = idx;
+        }
+      }
+      searchPos = idx + 1;
+    }
+  }
+
+  if (bestIndex !== -1) {
+    const beforeMarker = html.substring(0, bestIndex);
+    let containerStart = -1;
+    let latestProtectedHeaderPos = -1;
+    const tags = ['<h2', '<hr', '<table'];
+
+    // Find the LATEST protected header before the marker
+    for (const tag of ['<h2', '<table']) {
+      let searchPosLimit = beforeMarker.length;
+      while (true) {
+        const tagIdx = beforeMarker.lastIndexOf(tag, searchPosLimit);
+        if (tagIdx === -1) break;
+        const snippet = beforeMarker.substring(tagIdx, tagIdx + 1000).toLowerCase();
+        const isProtected = snippet.includes("survival tips") ||
+          snippet.includes("points of return") ||
+          snippet.includes("today’s points");
+        if (isProtected) {
+          if (tagIdx > latestProtectedHeaderPos) latestProtectedHeaderPos = tagIdx;
+          break;
+        }
+        searchPosLimit = tagIdx - 1;
+        if (searchPosLimit < 0) break;
+      }
+    }
+
+    for (const tag of tags) {
+      let searchIdxLimit = beforeMarker.length;
+      while (true) {
+        const tagIdx = beforeMarker.lastIndexOf(tag, searchIdxLimit);
+        if (tagIdx === -1) break;
+
+        // If we have a protected header, any container AFTER its start is likely content.
+        if (latestProtectedHeaderPos !== -1 && tagIdx > latestProtectedHeaderPos) {
+          searchIdxLimit = tagIdx - 1;
+          continue;
+        }
+
+        const snippet = beforeMarker.substring(tagIdx, tagIdx + 500).toLowerCase();
+        const isProtected = snippet.includes("survival tips") ||
+          snippet.includes("points of return") ||
+          snippet.includes("today’s points");
+
+        if (!isProtected) {
+          if (tagIdx > containerStart) containerStart = tagIdx;
+          break;
+        } else {
+          searchIdxLimit = tagIdx - 1;
+          continue;
+        }
+      }
+    }
+
+    if (containerStart !== -1 && containerStart > latestProtectedHeaderPos && containerStart > lowerHtml.length * 0.4) {
+      html = html.substring(0, containerStart) + "</body></html>";
+    } else {
+      html = html.substring(0, bestIndex) + "</body></html>";
+    }
+  }
+
+  return html;
+}
+
 function getHeader(headers, name) {
   if (!headers) return '';
   const h = headers.find(x => x.name === name);
@@ -113,7 +208,10 @@ async function renderEmail(msgDetails, index, total) {
     const date = new Date(parseInt(msgDetails.internalDate) || dateStr);
     const isUnread = msgDetails.labelIds.includes('UNREAD');
 
-    const { html: bodyHtml } = extractBodyData(msgDetails.payload);
+    let { html: bodyHtml } = extractBodyData(msgDetails.payload);
+
+    // Apply Bloomberg Footer Removal
+    bodyHtml = processFooterRemoval(bodyHtml);
 
     const card = document.createElement('div');
     card.className = `email-card ${isUnread ? 'unread' : ''}`;
