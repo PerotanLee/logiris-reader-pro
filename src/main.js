@@ -362,6 +362,12 @@ function setupNavigation() {
       if (link) {
         const url = link.href;
         if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
+          const cookies = CookieBridge.getSavedCookies();
+          if (!cookies) {
+            console.log("Reader View: No cookies set, allowing normal navigation");
+            return; // Fallback: Proceed with browser default (open in new tab)
+          }
+
           e.preventDefault();
           e.stopPropagation();
           console.log("Delegated click: intercepted Bloomberg URL", url);
