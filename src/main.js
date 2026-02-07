@@ -363,9 +363,14 @@ function setupNavigation() {
         const url = link.href;
         if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
           const cookies = CookieBridge.getSavedCookies();
+
           if (!cookies) {
-            console.log("Reader View: No cookies set, allowing normal navigation");
-            return; // Fallback: Proceed with browser default (open in new tab)
+            console.log("Reader View: No cookies set, forcing external navigation");
+            // In PWA standalone, we MUST use window.open to breakout to browser
+            window.open(url, '_blank');
+            e.preventDefault();
+            e.stopPropagation();
+            return;
           }
 
           e.preventDefault();
@@ -396,6 +401,14 @@ function setupZoom() {
 // --- Reader View Logic ---
 async function openReaderView(url, title = 'Article') {
   console.log("openReaderView: displaying overlay for", url);
+
+  // EXTRA SAFETY: If cookies were somehow cleared just before this call
+  const cookies = CookieBridge.getSavedCookies();
+  if (!cookies) {
+    window.open(url, '_blank');
+    return;
+  }
+
   const readerView = document.getElementById('reader-view');
   const readerTitle = document.getElementById('reader-title');
   const readerBody = document.getElementById('reader-article-body');
