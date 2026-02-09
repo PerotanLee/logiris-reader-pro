@@ -227,12 +227,11 @@ body {
   user-select: none;
   touch-action: none;
   -webkit-touch-callout: none;
-  /* Disable iOS/Safari long-press menu */
   width: var(--fab-size);
   height: var(--fab-size);
   border-radius: 50%;
-  background: rgba(47, 129, 247, 0.4);
-  color: #fff;
+  background: rgba(47, 129, 247, 0.15);
+  color: rgba(255, 255, 255, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 24px;
   box-shadow: none;
@@ -240,17 +239,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.2s, background 0.2s;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Hover only for mouse users - fade out on hover */
-@media (hover: hover) {
-  .fab-btn:hover {
-    opacity: 0;
-    pointer-events: none;
-  }
 }
 
 .fab-btn:active {
