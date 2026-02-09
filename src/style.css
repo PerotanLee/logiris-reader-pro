@@ -99,9 +99,7 @@ body {
   border-radius: 8px;
   padding: 8px;
   margin-bottom: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  /* overflow: hidden;  Removing this to prevent clipping of zoomed content */
   box-sizing: border-box;
   scroll-margin-top: 60px;
   /* Space for sticky header when jumping */
@@ -109,10 +107,6 @@ body {
 
 .email-card.unread {
   border-left: 3px solid var(--accent-color);
-}
-
-.email-card:active {
-  transform: scale(0.995);
 }
 
 .card-meta {
@@ -219,21 +213,13 @@ body {
 /* FAB */
 .fab-container {
   position: fixed;
-  bottom: 24px;
-  /* Default for Desktop */
+  top: 42%;
   right: 20px;
   z-index: 2000;
   /* Higher than Reader View (1500) */
   display: flex;
   justify-content: flex-end;
   pointer-events: none;
-}
-
-/* Mobile specific positioning - Physical Center Right */
-body.is-mobile-view .fab-container {
-  top: 42%;
-  /* Removed translateY centering to allow manual positioning via JS */
-  bottom: auto;
 }
 
 .fab-btn {
@@ -443,18 +429,6 @@ textarea {
   /* Initially hidden */
   flex-direction: column;
   background-color: var(--bg-color);
-  /* Ensure solid background */
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(100%);
-  }
-
-  to {
-    transform: translateY(0);
-  }
 }
 
 .reader-header {

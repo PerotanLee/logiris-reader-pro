@@ -355,31 +355,14 @@ function setupNavigation() {
     }
   });
 
-  // DELEGATED EVENT LISTENER for link interception
+  // DELEGATED EVENT LISTENER - open all links in new tab
   if (streamContainer) {
     streamContainer.addEventListener('click', (e) => {
       const link = e.target.closest('a');
-      if (link) {
-        const url = link.href;
-        if (url.includes('bloomberg.com') || url.includes('bloomberg.co.jp')) {
-          const cookies = CookieBridge.getSavedCookies();
-
-          if (!cookies) {
-            console.log("Reader View: No cookies set, forcing external navigation");
-            // In PWA standalone, we MUST use window.open to breakout to browser
-            window.open(url, '_blank');
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
-
-          e.preventDefault();
-          e.stopPropagation();
-          console.log("Delegated click: intercepted Bloomberg URL", url);
-          const card = link.closest('.email-card');
-          const subject = card ? card.getAttribute('data-subject') : 'Article';
-          openReaderView(url, subject);
-        }
+      if (link && link.href) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(link.href, '_blank');
       }
     });
   }
@@ -398,111 +381,7 @@ function setupZoom() {
   });
 }
 
-// --- Reader View Logic ---
-async function openReaderView(url, title = 'Article') {
-  console.log("openReaderView: displaying overlay for", url);
 
-  // EXTRA SAFETY: If cookies were somehow cleared just before this call
-  const cookies = CookieBridge.getSavedCookies();
-  if (!cookies) {
-    window.open(url, '_blank');
-    return;
-  }
-
-  const readerView = document.getElementById('reader-view');
-  const readerTitle = document.getElementById('reader-title');
-  const readerBody = document.getElementById('reader-article-body');
-  const externalBtn = document.getElementById('reader-external-btn');
-
-  if (!readerView || !readerBody) {
-    console.error("Reader View DOM artifacts missing");
-    return;
-  }
-
-  // REFRESH ANIMATION & SHOW
-  readerView.style.display = 'none';
-  void readerView.offsetWidth; // Trigger reflow to restart animation if needed
-  readerTitle.textContent = title;
-  readerView.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-
-  readerBody.innerHTML = `
-    <div style="padding: 40px; text-align: center;">
-      <p>Fetching full-text via Article Engine...</p>
-      <div class="loading-spinner"></div>
-    </div>
-  `;
-
-  externalBtn.onclick = () => window.open(url, '_blank');
-
-  if (!STATE.gasUrl) {
-    readerBody.innerHTML = `
-      <div style="padding: 40px; text-align: center;">
-        <p style="color: #ff7b72;">GAS Proxy URL が設定されていません。</p>
-        <p style="font-size: 13px;">設定ボタン (⚙️) から GAS ウェブアプリの URL を入力してください。</p>
-        <button id="reader-open-settings" class="btn-primary" style="margin-top:20px;">設定を開く</button>
-      </div>
-    `;
-    const sBtn = document.getElementById('reader-open-settings');
-    if (sBtn) {
-      sBtn.onclick = () => {
-        document.getElementById('pro-settings-btn').click();
-        closeReaderView();
-      };
-    }
-    return;
-  }
-
-  try {
-    const cookies = CookieBridge.getSavedCookies();
-    const formData = new URLSearchParams();
-    formData.append('url', url);
-    formData.append('cookies', cookies);
-
-    const response = await fetch(STATE.gasUrl, {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) throw new Error(`Proxy error: ${response.status}`);
-
-    const data = await response.json();
-    if (data.success) {
-      readerBody.innerHTML = `
-        <div class="article-container" style="padding: 20px; max-width: 800px; margin: 0 auto; line-height: 1.8;">
-          <h1 style="font-size: 24px; margin-bottom: 24px; color: var(--text-primary);">${data.title || title}</h1>
-          <div class="article-body-content" style="font-size: 18px; color: var(--text-primary);">
-            ${data.body}
-          </div>
-        </div>
-      `;
-    } else {
-      throw new Error(data.error || '本文の取得に失敗しました');
-    }
-  } catch (err) {
-    console.error('Reader View error:', err);
-    readerBody.innerHTML = `
-      <div style="padding: 40px; text-align: center;">
-        <p style="color: #ff7b72; font-weight: bold;">エラー: ${err.name === 'TypeError' ? '通信エラー (CORS またはネットワーク)' : err.message}</p>
-        <p style="font-size: 10px; opacity: 0.5; margin-top: 20px; word-break: break-all;">${url}</p>
-        <button id="reader-err-back" class="btn-secondary" style="margin-top:20px;">戻る</button>
-      </div>
-    `;
-    const b = document.getElementById('reader-err-back');
-    if (b) b.onclick = closeReaderView;
-  }
-}
-
-function closeReaderView() {
-  const v = document.getElementById('reader-view');
-  if (v) v.style.display = 'none';
-  document.body.style.overflow = '';
-}
-
-function setupReaderNavigation() {
-  const b = document.getElementById('back-to-list-btn');
-  if (b) b.onclick = closeReaderView;
-}
 
 // --- Pro Settings UI ---
 function setupProSettings() {
@@ -573,7 +452,7 @@ async function initApp() {
   checkDeviceType();
   setupNavigation();
   setupZoom();
-  setupReaderNavigation();
+
 
   window.handleGoogleAuth = () => {
     handleAuthClick(async () => {
