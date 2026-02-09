@@ -231,10 +231,8 @@ body {
   width: var(--fab-size);
   height: var(--fab-size);
   border-radius: 50%;
-  background: rgba(47, 129, 247, 0.05);
-  /* Extremely Transparent */
-  color: rgba(255, 255, 255, 0.3);
-  /* Fainter glyph */
+  background: rgba(47, 129, 247, 0.4);
+  color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 24px;
   box-shadow: none;
@@ -242,23 +240,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, background 0.2s;
+  transition: opacity 0.2s, background 0.2s;
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Hover only for mouse users */
+/* Hover only for mouse users - fade out on hover */
 @media (hover: hover) {
   .fab-btn:hover {
-    background: rgba(47, 129, 247, 0.4);
-    color: #fff;
-    transform: translateY(-2px);
+    opacity: 0;
+    pointer-events: none;
   }
 }
 
 .fab-btn:active {
   transform: scale(0.92);
-  /* No background change on mobile to prevent "sticking" */
 }
 
 .btn-primary {
