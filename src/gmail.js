@@ -48,11 +48,11 @@ function checkAuth() {
 export function handleAuthClick(callback) {
     userCallback = callback;
     const token = gapi.client.getToken();
-    if (token === null) {
-        // Try to see if we have a persisted session but no gapi token set
-        tokenClient.requestAccessToken({ prompt: '' });
+    if (token !== null) {
+        // Token already restored from localStorage – skip OAuth popup
+        if (userCallback) userCallback();
     } else {
-        // Skip display of account chooser and consent dialog for an existing session.
+        // No token – request one (may show account chooser)
         tokenClient.requestAccessToken({ prompt: '' });
     }
 }
