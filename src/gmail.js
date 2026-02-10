@@ -45,12 +45,22 @@ function checkAuth() {
     // Can trigger initial UI update here
 }
 
-export function handleAuthClick(callback) {
+export async function handleAuthClick(callback) {
     userCallback = callback;
     const token = gapi.client.getToken();
     if (token !== null) {
-        // Token already restored from localStorage – skip OAuth popup
-        if (userCallback) userCallback();
+        // Verify token is still valid with a lightweight API call
+        try {
+            await gapi.client.gmail.users.getProfile({ userId: 'me' });
+            // Token is valid – skip OAuth popup
+            if (userCallback) userCallback();
+        } catch (e) {
+            // Token expired – clear and re-authenticate
+            console.log('Saved token expired, re-authenticating...');
+            gapi.client.setToken(null);
+            localStorage.removeItem('gmail_access_token');
+            tokenClient.requestAccessToken({ prompt: '' });
+        }
     } else {
         // No token – request one (may show account chooser)
         tokenClient.requestAccessToken({ prompt: '' });
