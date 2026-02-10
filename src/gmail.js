@@ -30,11 +30,18 @@ export function gisLoaded(clientId, scope = SCOPES) {
         scope: scope,
         callback: async (resp) => {
             if (resp.error !== undefined) {
-                throw (resp);
+                console.error('Token error:', resp.error);
+                showSignInButton();
+                return;
             }
             // Save token to localStorage
             localStorage.setItem('gmail_access_token', JSON.stringify(resp));
             if (userCallback) userCallback();
+        },
+        error_callback: (err) => {
+            // Silent refresh failed (e.g. popup blocked, session expired)
+            console.log('Silent auth failed, showing Sign In button');
+            showSignInButton();
         },
     });
     gisInited = true;
@@ -43,6 +50,20 @@ export function gisLoaded(clientId, scope = SCOPES) {
 
 function checkAuth() {
     // Can trigger initial UI update here
+}
+
+function showSignInButton() {
+    const s = document.getElementById('auth-status');
+    if (s && !s.querySelector('button')) {
+        s.textContent = '';
+        const b = document.createElement('button');
+        b.textContent = 'Sign In';
+        b.className = 'btn-text';
+        b.onclick = () => {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        };
+        s.appendChild(b);
+    }
 }
 
 export async function handleAuthClick(callback) {
